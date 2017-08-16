@@ -37,13 +37,16 @@ def eachDB(elements, top, followers):
                 # dumplicate = connDB(1, "select id from zhihu WHERE account='"+str(urllist[-1])+"'")
                 # if len(dumplicate) == 0:
                 cur.execute('insert into zhihu (account, name, url, top, status) VALUES ("' + str(urllist[-1]) + '","' + str(element.text) + '", "' + str(url) + '","' + str(top) + '", "'+str(status)+'")')
-                print(str(element.text) + ">>>已捕获" + datetime.datetime.now())
+                print(str(element.text)[0:3] + "\t\t 数据正确，已捕获 \t\t" + str(datetime.datetime.now()))
                 # else:
                 #     print(str(element.text) + ">>>已存在")
-            except:
+            except Exception as E:
                 # connDB(0, 'insert into error (url) VALUE ("'+str(url)+'")')
-                cur.execute('insert into error (url) VALUE ("'+str(url)+'")')
-                print(str(url) + ">>>发生错误，已处理")
+                try:
+                    cur.execute('insert into error (url) VALUE ("'+str(url)+'")')
+                    print(str(element.text)[0:3] + "\t\t 发生错误，已处理 \t\t" + str(datetime.datetime.now()))
+                except:
+                    print(str(element.text)[0:3] + "\t\t 发生错误，未处理 \t\t" + str(datetime.datetime.now()))
     conn.commit()
 
 def get_follower(url):
