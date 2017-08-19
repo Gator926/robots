@@ -5,6 +5,21 @@ import datetime
 import pymysql
 
 
+def my_align(string, length=0):
+    if length == 0:
+        return string
+    slen = len(string)
+    re = string
+    if isinstance(string, str):
+        placeholder = ' '
+    else:
+        placeholder = u'　'
+    while slen < length:
+        re += placeholder
+        slen += 1
+    return re
+
+
 def conn_db(sentence):
     """
     根据sql语句查询数据
@@ -37,18 +52,25 @@ def store_follower(elements, top, followers, number):
                 status = 0
             url = element.get_attribute("href")                     # 获取用户网页地址
             urllist = url.split("/")                                # 将用户地址按"/"进行拆分
+            string = element.text
             try:
                 cur.execute(
                     'insert into zhihu (account, name, url, top, status) VALUES ("' + str(urllist[-1]) + '","' + str(
                         element.text) + '", "' + str(url) + '","' + str(top) + '", "' + str(status) + '")')
                 number += 1
-                print("No." + str(number) + "\t" + str(element.text)[0:3] + "\t 数据正确，已捕获 \t" + str(datetime.datetime.now())[0:-7])
+                print("No.{number} \t {string: <10} \t数据正确，已捕获 \t {time}".format(number=number, string=string[0:5],
+                                                                            time=str(datetime.datetime.now())[
+                                                                                 0:-7]))
             except IntegrityError:                                  # 数据元素已经存在
                 try:
                     cur.execute('insert into error (url) VALUE ("' + str(url) + '")')
-                    print("No." + str(number) + "\t" + str(element.text)[0:3] + "\t 发生错误，已处理 \t" + str(datetime.datetime.now())[0:-7])
+                    print("No.{number} \t {string: <10} \t数据正确，已处理 \t {time}".format(number=number, string=string[0:5],
+                                                                                     time=str(datetime.datetime.now())[
+                                                                                          0:-7]))
                 except IntegrityError:
-                    print("No." + str(number) + "\t" + str(element.text)[0:3] + "\t 发生错误，已存在 \t" + str(datetime.datetime.now())[0:-7])
+                    print("No.{number} \t {string: <10} \t数据正确，已存在 \t {time}".format(number=number, string=string[0:5],
+                                                                                     time=str(datetime.datetime.now())[
+                                                                                          0:-7]))
                 except UnicodeEncodeError:
                     print("No." + str(number) + "\t" + "编码错误，已忽略")
                 except Exception as E:
