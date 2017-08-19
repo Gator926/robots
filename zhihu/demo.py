@@ -30,7 +30,7 @@ def store_follower(elements, top, followers, number):
     for index, element in enumerate(elements):
         if element.text != "":                                      # 排除空元素
             follow_list = followers[follow_index].text.split(" ")   # 获取关注改用户的人数
-            follow_index = follow_index + 1
+            follow_index += 1
             if int(follow_list[0]) == 0:                            # 该用户无关注者
                 status = 1
             else:                                                   # 该用户有关注者
@@ -47,13 +47,10 @@ def store_follower(elements, top, followers, number):
                 try:
                     cur.execute('insert into error (url) VALUE ("' + str(url) + '")')
                     print("No." + str(number) + "\t" + str(element.text)[0:3] + "\t 发生错误，已处理 \t" + str(datetime.datetime.now())[0:-7])
-                    number += 1
                 except IntegrityError:
                     print("No." + str(number) + "\t" + str(element.text)[0:3] + "\t 发生错误，已存在 \t" + str(datetime.datetime.now())[0:-7])
-                    number += 1
                 except UnicodeEncodeError:
                     print("No." + str(number) + "\t" + "编码错误，已忽略")
-                    number += 1
                 except Exception as E:
                     print(E)
                     print(repr(E))
@@ -95,11 +92,11 @@ def get_follower(web_url, number):
     return number
 
 if __name__ == '__main__':
-    conn = pymysql.connect(host='106.15.203.249', user='myuser', passwd='zhangPEI926!@', db='robots', port=3306,
+    conn = pymysql.connect(host='****', user='****', passwd='****', db='****', port=3306,
                            charset='utf8')
     number = 0
     while 1:
-        url = conn_db("select url from zhihu where status ='0' limit 1")
+        url = conn_db("select url from zhihu where status ='0' order by time desc limit 1")
         if len(url) != 0:
             number = get_follower(url[0][0], number)
         else:
