@@ -41,8 +41,8 @@ def store_follower(elements, top, followers, number):
                 cur.execute(
                     'insert into zhihu (account, name, url, top, status) VALUES ("' + str(urllist[-1]) + '","' + str(
                         element.text) + '", "' + str(url) + '","' + str(top) + '", "' + str(status) + '")')
-                print("No." + str(number) + "\t" + str(element.text)[0:3] + "\t 数据正确，已捕获 \t" + str(datetime.datetime.now())[0:-7])
                 number += 1
+                print("No." + str(number) + "\t" + str(element.text)[0:3] + "\t 数据正确，已捕获 \t" + str(datetime.datetime.now())[0:-7])
             except IntegrityError:                                  # 数据元素已经存在
                 try:
                     cur.execute('insert into error (url) VALUE ("' + str(url) + '")')
