@@ -1,5 +1,5 @@
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, WebDriverException
 from pymysql.err import IntegrityError
 import datetime
 import pymysql
@@ -87,31 +87,35 @@ def get_follower(web_url, number):
     :param web_url:     用户的网页地址
     :param number:      爬取的用户数
     """
-    browser = webdriver.Chrome()
-    browser.implicitly_wait(1)                                      # 设置隐形等待时间
-    browser.get(web_url + "/followers")
+    try:
+        browser = webdriver.Chrome()
+        browser.implicitly_wait(1)                                      # 设置隐形等待时间
+        browser.get(web_url + "/followers")
 
-    url_list = web_url.split("/")                                   # 根据"/"对url进行拆分
+        url_list = web_url.split("/")                                   # 根据"/"对url进行拆分
 
-    while 1:
-        element = browser.find_elements_by_class_name("UserLink-link")
-        followers = browser.find_elements_by_xpath("//span[@class='ContentItem-statusItem'][last()]")
-        try:
-            number = store_follower(element, url_list[-1], followers, number)
-            button = browser.find_element_by_xpath("//button[@class='Button PaginationButton PaginationButton-next "
-                                                   "Button--plain'][last()]")
-            button.click()
-        except NoSuchElementException:                              # 类型错误，网页不存在，无关注者,或者无下一页按钮
-            cur_update = conn.cursor()                              # 将用户状态改为1
-            cur_update.execute("update zhihu set status = 1 where account = '" + str(url_list[-1]) + "'")
-            conn.commit()
-            browser.close()
-            break
-        except Exception as E:
-            print(E)
-            print(repr(E))
-            exit()
-    return number
+        while 1:
+            element = browser.find_elements_by_class_name("UserLink-link")
+            followers = browser.find_elements_by_xpath("//span[@class='ContentItem-statusItem'][last()]")
+            try:
+                number = store_follower(element, url_list[-1], followers, number)
+                button = browser.find_element_by_xpath("//button[@class='Button PaginationButton PaginationButton-next "
+                                                       "Button--plain'][last()]")
+                button.click()
+            except NoSuchElementException:                              # 类型错误，网页不存在，无关注者,或者无下一页按钮
+                cur_update = conn.cursor()                              # 将用户状态改为1
+                cur_update.execute("update zhihu set status = 1 where account = '" + str(url_list[-1]) + "'")
+                conn.commit()
+                browser.close()
+                break
+            except Exception as E:
+                print(E)
+                print(repr(E))
+                exit()
+        return number
+    except WebDriverException:
+        print("网页出现错误，正在重启")
+        get_follower(web_url=web_url, number=number)
 
 if __name__ == '__main__':
     conn = pymysql.connect(host='****', user='****', passwd='****', db='****', port=3306,
