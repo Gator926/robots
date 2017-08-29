@@ -62,27 +62,23 @@ def get_html(pool):
                     browser.find_element_by_class_name("UserLink-link")  # 防止页面未加载完毕
                     # 页面元素
                     element = browser.find_element_by_class_name("List").get_attribute("innerHTML")
-                except NoSuchElementException as E:
-                    print("网页加载失败")
-                    logging.error("网页加载失败")
-                    logging.error(E)
-                    break
-                try:
-                    conn = pool.connection()
-                    cur = conn.cursor()
-                    element = element.replace("'", '"')
-                    sql = "insert into test_process (html, top, status) values ('%s', '%s', 0)" \
-                          % (element, top)
-                    cur.execute(sql)
-                    conn.commit()
-                    cur.close()
-                    conn.close
-                except ProgrammingError:
-                    pass
-                try:
                     button = browser.find_element_by_xpath(
                         "//button[@class='Button PaginationButton PaginationButton-next "
                         "Button--plain'][last()]")
+
+                    try:
+                        conn = pool.connection()
+                        cur = conn.cursor()
+                        element = element.replace("'", '"')
+                        sql = "insert into test_process (html, top, status) values ('%s', '%s', 0)" \
+                              % (element, top)
+                        cur.execute(sql)
+                        conn.commit()
+                        cur.close()
+                        conn.close
+                    except ProgrammingError:
+                        pass
+
                     button.click()
                     time.sleep(1)
 
@@ -118,7 +114,7 @@ def get_html(pool):
                     cur.close()
                     conn.close
 
-                    url_string = result[1]
+                    url_string = result[0]
                     if "page" in url_string:  # 构造原有的url
                         url_string = ""
                         url_string_list = url_string.split('/')
@@ -185,7 +181,7 @@ def get_fellower(pool):
                 cur = conn.cursor()
                 try:
                     sql = "insert into test_zhihu (account, name, url, top, status) VALUES (" \
-                          "'%s', '%s', '%s', '%s', %d)" % (content, account_list[-1],
+                          "'%s', '%s', '%s', '%s', %d)" % (account_list[-1], content,
                           "https://www.zhihu.com" + url[index], top, status)
                     cur.execute(sql)
                     conn.commit()
