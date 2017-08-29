@@ -54,9 +54,7 @@ def store_follower(elements, top, followers, number):
             urllist = url.split("/")                                # 将用户地址按"/"进行拆分
             string = element.text
             try:
-                cur.execute(
-                    'insert into zhihu (account, name, url, top, status) VALUES ("' + str(urllist[-1]) + '","' + str(
-                        element.text) + '", "' + str(url) + '","' + str(top) + '", "' + str(status) + '")')
+                cur.execute('insert into zhihu (account, name, url, top, status) VALUES ("' + str(urllist[-1]) + '","' + str(element.text) + '", "' + str(url) + '","' + str(top) + '", "' + str(status) + '")')
                 number += 1
                 print("No.{number} \t {string: <10} \t数据正确，已捕获 \t {time}".format(number=number, string=string[0:5],
                                                                             time=str(datetime.datetime.now())[
@@ -81,15 +79,13 @@ def store_follower(elements, top, followers, number):
     return number
 
 
-def get_follower(web_url, number):
+def get_follower(web_url, number, browser):
     """
     获取关注者信息
     :param web_url:     用户的网页地址
     :param number:      爬取的用户数
     """
     try:
-        browser = webdriver.Chrome()
-        browser.implicitly_wait(1)                                      # 设置隐形等待时间
         browser.get(web_url + "/followers")
 
         url_list = web_url.split("/")                                   # 根据"/"对url进行拆分
@@ -106,7 +102,6 @@ def get_follower(web_url, number):
                 cur_update = conn.cursor()                              # 将用户状态改为1
                 cur_update.execute("update zhihu set status = 1 where account = '" + str(url_list[-1]) + "'")
                 conn.commit()
-                browser.close()
                 break
             except Exception as E:
                 print(E)
@@ -120,11 +115,14 @@ def get_follower(web_url, number):
 if __name__ == '__main__':
     conn = pymysql.connect(host='****', user='****', passwd='****', db='****', port=3306,
                            charset='utf8')
-    number = 0
+    number = 0                      # 统计获取用户的个数
+    browser = webdriver.Chrome()    # 初始化浏览器
+    browser.implicitly_wait(1)      # 设置隐形等待时间
     while 1:
         url = conn_db("select url from zhihu where status ='0' order by time desc limit 1")
         if len(url) != 0:
-            number = get_follower(url[0][0], number)
+            number = get_follower(url[0][0], number, browser)
         else:
             break
     conn.close()
+    browser.close()
