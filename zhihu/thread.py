@@ -9,7 +9,6 @@ import time
 import socket
 import threading
 import logging
-import sys
 
 
 # def get_url_list(cur, conn):
@@ -74,7 +73,6 @@ def get_html(pool):
                     element = element.replace("'", '"')
                     sql = "insert into test_process (html, top, status) values ('%s', '%s', 0)" \
                           % (element, top)
-                    print(sql)
                     cur.execute(sql)
                     conn.commit()
                     cur.close()
