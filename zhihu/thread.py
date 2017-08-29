@@ -80,7 +80,7 @@ def get_html(pool):
                         pass
 
                     button.click()
-                    time.sleep(1)
+                    time.sleep(2)
 
                     conn = pool.connection()  # 更新已爬的页面
                     cur = conn.cursor()
@@ -92,44 +92,49 @@ def get_html(pool):
                     conn.close
 
                 except NoSuchElementException as E:  # 类型错误，网页不存在，无关注者,或者无下一页按钮
-                    conn = pool.connection()
-                    cur = conn.cursor()
-
-                    sql = "update test_zhihu set status = 1, machine = '%s' where account = '%s'" \
-                          % (socket.gethostname(), top)
-                    cur.execute(sql)
-                    conn.commit()
-
-                    cur.close()
-                    conn.close
-                    print(top + "\t已爬完\t" + str(datetime.datetime.now()))
-                    logging.info(top + "\t已爬完\t" + str(datetime.datetime.now()))
-                    logging.error(E)
-
-                    conn = pool.connection()
-                    cur = conn.cursor()
-                    sql = "select url from test_zhihu where account = '%s'" % top
-                    cur.execute(sql)
-                    result = cur.fetchall()
-                    cur.close()
-                    conn.close
-
-                    url_string = result[0]
-                    if "page" in url_string:  # 构造原有的url
-                        url_string = ""
-                        url_string_list = url_string.split('/')
-                        for each in url_string_list:
-                            url_string += each
+                    unknowurl = browser.current_url
+                    if "unhuman" in unknowurl:
+                        print("爬虫被捕获")
+                        exit()
+                    else:
                         conn = pool.connection()
                         cur = conn.cursor()
-                        sql = "update test_zhihu set url = '%s' where account = '%s'" % (
-                            url_string, top)
+
+                        sql = "update test_zhihu set status = 1, machine = '%s' where account = '%s'" \
+                              % (socket.gethostname(), top)
                         cur.execute(sql)
                         conn.commit()
+
+                        cur.close()
+                        conn.close
+                        print(top + "\t已爬完\t" + str(datetime.datetime.now()))
+                        logging.info(top + "\t已爬完\t" + str(datetime.datetime.now()))
+                        logging.error(E)
+
+                        conn = pool.connection()
+                        cur = conn.cursor()
+                        sql = "select url from test_zhihu where account = '%s'" % top
+                        cur.execute(sql)
+                        result = cur.fetchall()
                         cur.close()
                         conn.close
 
-                    break
+                        url_string = result[0]
+                        if "page" in url_string:  # 构造原有的url
+                            url_string = ""
+                            url_string_list = url_string.split('/')
+                            for each in url_string_list:
+                                url_string += each
+                            conn = pool.connection()
+                            cur = conn.cursor()
+                            sql = "update test_zhihu set url = '%s' where account = '%s'" % (
+                                url_string, top)
+                            cur.execute(sql)
+                            conn.commit()
+                            cur.close()
+                            conn.close
+
+                        break
                 except Exception as E:
                     print(E)
                     logging.error(E)
