@@ -9,6 +9,7 @@ import time
 import socket
 import threading
 import logging
+import sys
 
 
 # def get_url_list(cur, conn):
@@ -53,7 +54,10 @@ def get_html(pool):
         else:
             each_url = url_list.pop(0)
             top = each_url[1]  # 上一级
-            browser.get(each_url[0] + "/followers")
+            if "followers" in each_url[0]:
+                browser.get(each_url[0])
+            else:
+                browser.get(each_url[0] + "/followers")
             while 1:
                 try:
                     browser.find_element_by_class_name("UserLink-link")  # 防止页面未加载完毕
@@ -67,8 +71,10 @@ def get_html(pool):
                 try:
                     conn = pool.connection()
                     cur = conn.cursor()
+                    element = element.replace("'", '"')
                     sql = "insert into test_process (html, top, status) values ('%s', '%s', 0)" \
                           % (element, top)
+                    print(sql)
                     cur.execute(sql)
                     conn.commit()
                     cur.close()
@@ -84,6 +90,16 @@ def get_html(pool):
                     if number == 3:  # 防止请求过快
                         time.sleep(2)
                         number = 0
+
+                        conn = pool.connection()  # 更新已爬的页面
+                        cur = conn.cursor()
+                        sql = "update test_zhihu set url = '%s' where url = '%s'" \
+                              % (browser.current_url, each_url[0])
+                        cur.execute(sql)
+                        conn.commit()
+                        cur.close()
+                        conn.close
+
                 except NoSuchElementException as E:  # 类型错误，网页不存在，无关注者,或者无下一页按钮
                     conn = pool.connection()
                     cur = conn.cursor()
@@ -98,6 +114,29 @@ def get_html(pool):
                     print(top + "\t已爬完\t" + str(datetime.datetime.now()))
                     logging.info(top + "\t已爬完\t" + str(datetime.datetime.now()))
                     logging.error(E)
+
+                    conn = pool.connection()
+                    cur = conn.cursor()
+                    sql = "select url from test_zhihu where account = '%s'" % top
+                    cur.execute(sql)
+                    result = cur.fetchall()
+                    cur.close()
+                    conn.close
+
+                    url_string = result[1]
+                    if "page" in url_string:  # 构造原有的url
+                        url_string = ""
+                        url_string_list = url_string.split('/')
+                        for each in url_string_list:
+                            url_string += each
+                        conn = pool.connection()
+                        cur = conn.cursor()
+                        sql = "update test_zhihu set url = '%s' where account = '%s'" % (
+                            url_string, top)
+                        cur.execute(sql)
+                        conn.commit()
+                        cur.close()
+                        conn.close
 
                     break
                 except Exception as E:
@@ -172,6 +211,7 @@ def get_fellower(pool):
 
                 cur.close()
                 conn.close
+
 
 
 if __name__ == '__main__':
