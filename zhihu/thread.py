@@ -84,19 +84,16 @@ def get_html(pool):
                         "//button[@class='Button PaginationButton PaginationButton-next "
                         "Button--plain'][last()]")
                     button.click()
-                    number += 1
-                    if number == 3:  # 防止请求过快
-                        time.sleep(2)
-                        number = 0
+                    time.sleep(1)
 
-                        conn = pool.connection()  # 更新已爬的页面
-                        cur = conn.cursor()
-                        sql = "update test_zhihu set url = '%s' where url = '%s'" \
-                              % (browser.current_url, each_url[0])
-                        cur.execute(sql)
-                        conn.commit()
-                        cur.close()
-                        conn.close
+                    conn = pool.connection()  # 更新已爬的页面
+                    cur = conn.cursor()
+                    sql = "update test_zhihu set url = '%s' where account = '%s'" \
+                          % (browser.current_url, top)
+                    cur.execute(sql)
+                    conn.commit()
+                    cur.close()
+                    conn.close
 
                 except NoSuchElementException as E:  # 类型错误，网页不存在，无关注者,或者无下一页按钮
                     conn = pool.connection()
@@ -187,9 +184,9 @@ def get_fellower(pool):
                 conn = pool.connection()
                 cur = conn.cursor()
                 try:
-                    sql = "insert into test_zhihu (account, name, url, top, status, machine) VALUES (" \
-                          "'%s', '%s', '%s', '%s', %d, '%s')" % (content, account_list[-1],
-                          "https://www.zhihu.com" + url[index], top, status, socket.gethostname())
+                    sql = "insert into test_zhihu (account, name, url, top, status) VALUES (" \
+                          "'%s', '%s', '%s', '%s', %d)" % (content, account_list[-1],
+                          "https://www.zhihu.com" + url[index], top, status)
                     cur.execute(sql)
                     conn.commit()
                     if len(account_list[-1]) < 10:
@@ -218,8 +215,8 @@ if __name__ == '__main__':
     thread_list = []
 
     connKwargs = {'charset': 'utf8'}  # 设置字符集
-    pool = PooledDB(pymysql, 5, host='localhost', user='root', passwd='1234', db='robots',
-                    port=3306, maxshared=10, blocking=True, **connKwargs)
+    pool = PooledDB(pymysql, 5, host='****', user='****', passwd='****',
+                    db='****', port=3306, maxshared=10, blocking=True, **connKwargs)
     filename = "robots.log"
     logging.basicConfig(filename=filename, level=logging.DEBUG)
     # conn = pool.connection()

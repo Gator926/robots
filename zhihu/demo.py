@@ -3,7 +3,7 @@ from selenium.common.exceptions import NoSuchElementException, WebDriverExceptio
 from pymysql.err import IntegrityError
 import datetime
 import pymysql
-
+import socket
 
 def my_align(string, length=0):
     if length == 0:
@@ -54,21 +54,28 @@ def store_follower(elements, top, followers, number):
             urllist = url.split("/")                                # 将用户地址按"/"进行拆分
             string = element.text
             try:
-                cur.execute('insert into zhihu (account, name, url, top, status) VALUES ("' + str(urllist[-1]) + '","' + str(element.text) + '", "' + str(url) + '","' + str(top) + '", "' + str(status) + '")')
+                sql = 'insert into test_zhihu (account, name, url, top, status) VALUES ' \
+                      '("%s", "%s", "%s", "%s", "%s")' % (urllist[-1], element.text, url, top,
+                                                           status)
+                cur.execute(sql)
+                conn.commit()
+                # cur.execute('insert into test_zhihu (account, name, url, top, status) VALUES ("' +
+                #             str(urllist[-1]) + '","' + str(element.text) + '", ' + str(url) +
+                #             '","' + str(top) + '", "' + str(status) + '"')
                 number += 1
-                print("No.{number} \t {string: <10} \t数据正确，已捕获 \t {time}".format(number=number, string=string[0:5],
-                                                                            time=str(datetime.datetime.now())[
-                                                                                 0:-7]))
+                print("No.{number} \t {string: <10} \t数据正确，已捕获 \t {time}".
+                      format(number=number, string=string[0:5],
+                             time=str(datetime.datetime.now())[0:-7]))
             except IntegrityError:                                  # 数据元素已经存在
                 try:
-                    cur.execute('insert into error (url) VALUE ("' + str(url) + '")')
-                    print("No.{number} \t {string: <10} \t数据正确，已处理 \t {time}".format(number=number, string=string[0:5],
-                                                                                     time=str(datetime.datetime.now())[
-                                                                                          0:-7]))
+                    # cur.execute('insert into error (url) VALUE ("' + str(url) + '")')
+                    print("No.{number} \t {string: <10} \t数据正确，已处理 \t {time}".
+                          format(number=number, string=string[0:5], time=str(
+                        datetime.datetime.now())[0:-7]))
                 except IntegrityError:
-                    print("No.{number} \t {string: <10} \t数据正确，已存在 \t {time}".format(number=number, string=string[0:5],
-                                                                                     time=str(datetime.datetime.now())[
-                                                                                          0:-7]))
+                    print("No.{number} \t {string: <10} \t数据正确，已存在 \t {time}".
+                          format(number=number, string=string[0:5], time=str(
+                        datetime.datetime.now())[0:-7]))
                 except UnicodeEncodeError:
                     print("No." + str(number) + "\t" + "编码错误，已忽略")
                 except Exception as E:
@@ -86,7 +93,10 @@ def get_follower(web_url, number, browser):
     :param number:      爬取的用户数
     """
     try:
-        browser.get(web_url + "/followers")
+        if "followers" in web_url:
+            browser.get(web_url)
+        else:
+            browser.get(web_url + "/followers")
 
         url_list = web_url.split("/")                                   # 根据"/"对url进行拆分
 
@@ -100,7 +110,11 @@ def get_follower(web_url, number, browser):
                 button.click()
             except NoSuchElementException:                              # 类型错误，网页不存在，无关注者,或者无下一页按钮
                 cur_update = conn.cursor()                              # 将用户状态改为1
-                cur_update.execute("update zhihu set status = 1 where account = '" + str(url_list[-1]) + "'")
+                sql = "update test_zhihu set status = 1, machine = '%s' where account = '%s'" % (
+                    socket.gethostname(), url_list[-1])
+                cur_update.execute(sql)
+                # cur_update.execute("update test_zhihu set status = 1 machine = '%s' where account = "
+                #                    "'%s'" % (socket.gethostname(), url_list[-1]))
                 conn.commit()
                 break
             except Exception as E:
@@ -113,13 +127,13 @@ def get_follower(web_url, number, browser):
         get_follower(web_url=web_url, number=number)
 
 if __name__ == '__main__':
-    conn = pymysql.connect(host='****', user='****', passwd='****', db='****', port=3306,
-                           charset='utf8')
+    conn = pymysql.connect(host='****', user='****', passwd='****', db='****',
+                           port=3306, charset='utf8')
     number = 0                      # 统计获取用户的个数
     browser = webdriver.Chrome()    # 初始化浏览器
     browser.implicitly_wait(1)      # 设置隐形等待时间
     while 1:
-        url = conn_db("select url from zhihu where status ='0' order by time desc limit 1")
+        url = conn_db("select url from test_zhihu where status ='0' order by time desc limit 1")
         if len(url) != 0:
             number = get_follower(url[0][0], number, browser)
         else:
