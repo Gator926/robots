@@ -20,12 +20,12 @@ def get_url_list(pool):
             conn = pool.connection()
             cur = conn.cursor()
 
-            sql = "update test_zhihu set status = 2, machine = '%s' where status = 0 limit 100" %\
-                  socket.gethostname()
+            sql = "update test_zhihu set status = 2, machine = '%s' where status = 0 " \
+                  "order by follower_number desc limit 100" % socket.gethostname()
             cur.execute(sql)
             conn.commit()
-            sql = "select url, account from test_zhihu where status = 2 and machine = '%s' limit 100" %\
-                  socket.gethostname()
+            sql = "select url, account from test_zhihu where status = 2 and machine = '%s' ORDER " \
+                  "BY follower_number desc limit 100" % socket.gethostname()
             cur.execute(sql)
             result = cur.fetchall()
             cur.close()
@@ -79,9 +79,6 @@ def get_html(pool):
                     except ProgrammingError:
                         pass
 
-                    button.click()
-                    time.sleep(2)
-
                     conn = pool.connection()  # 更新已爬的页面
                     cur = conn.cursor()
                     sql = "update test_zhihu set url = '%s' where account = '%s'" \
@@ -90,6 +87,9 @@ def get_html(pool):
                     conn.commit()
                     cur.close()
                     conn.close
+
+                    button.click()
+                    time.sleep(1)
 
                 except NoSuchElementException as E:  # 类型错误，网页不存在，无关注者,或者无下一页按钮
                     unknowurl = browser.current_url
@@ -115,16 +115,14 @@ def get_html(pool):
                         cur = conn.cursor()
                         sql = "select url from test_zhihu where account = '%s'" % top
                         cur.execute(sql)
-                        result = cur.fetchall()
+                        result = cur.fetchone()
                         cur.close()
                         conn.close
 
                         url_string = result[0]
                         if "page" in url_string:  # 构造原有的url
-                            url_string = ""
-                            url_string_list = url_string.split('/')
-                            for each in url_string_list:
-                                url_string += each
+                            index = url_string.index("followers")
+                            url_string = url_string[0:index - 1]
                             conn = pool.connection()
                             cur = conn.cursor()
                             sql = "update test_zhihu set url = '%s' where account = '%s'" % (
@@ -149,11 +147,11 @@ def get_fellower(pool):
             conn = pool.connection()
             cur = conn.cursor()
 
-            sql = "update test_process set status = 2, machine = '%s' where status = 0 limit 100" % \
+            sql = "update test_process set status = 2, machine = '%s-1' where status = 0 limit 100" % \
                   socket.gethostname()
             cur.execute(sql)
             conn.commit()
-            sql = "select id, html, top from test_process where status = 2 and machine = '%s' limit " \
+            sql = "select id, html, top from test_process where status = 2 and machine = '%s-1' limit " \
                   "100" % socket.gethostname()
             cur.execute(sql)
             result = list(cur.fetchall())
@@ -171,14 +169,14 @@ def get_fellower(pool):
             follower_name = html.xpath("//a[@class='UserLink-link']/text()")  # 获取用户昵称
             # 关注者url
             url = html.xpath("//div[@class='UserItem-title']//a[@class='UserLink-link']/@href")
-            #关注者的关注人数
+            # 关注者的关注人数
             follower_following = html.xpath("//span[@class='ContentItem-statusItem'][last()]")
 
             for index, content in enumerate(follower_name):  # 获取用户被关注人数
                 account_list = url[index].split("/")  # 根据url获取用户账号
                 follower_number = follower_following[index].text.split(" ")
                 if int(follower_number[0]) == 0:
-                    status = 1
+                    status = 3
                 else:
                     status = 0
 
@@ -187,20 +185,22 @@ def get_fellower(pool):
                 try:
                     sql = "insert into test_zhihu (account, name, url, top, status) VALUES (" \
                           "'%s', '%s', '%s', '%s', %d)" % (account_list[-1], content,
-                          "https://www.zhihu.com" + url[index], top, status)
+                                                           "https://www.zhihu.com" + url[index],
+                                                           top, status)
                     cur.execute(sql)
                     conn.commit()
                     if len(account_list[-1]) < 10:
-                        account_list += " " * (10 - len(account_list))
-                    print(account_list[-1][0:10] + "\t数据正确\t" + str(datetime.datetime.now())[0:18])
-                    logging.info(account_list[-1][0:10] + "\t数据正确\t" +
-                                 str(datetime.datetime.now())[0:18])
+                        account_list[-1] += " " * (10 - len(account_list[-1]))
+
+                    print(account_list[-1][0:10] + "\t数据正确\t" + str(datetime.datetime.now())[0:19])
+                    logging.info(account_list[-1] + "\t数据正确\t" +
+                                 str(datetime.datetime.now()))
                 except IntegrityError:
                     if len(account_list[-1]) < 10:
-                        account_list += " " * (10 - len(account_list))
-                    print(account_list[-1][0:10] + "\t数据存在\t" + str(datetime.datetime.now())[0:18])
-                    logging.info(account_list[-1][0:10] + "\t数据存在\t" +
-                                 str(datetime.datetime.now())[0:18])
+                        account_list[-1] += " " * (10 - len(account_list[-1]))
+                    print(account_list[-1][0:10] + "\t数据存在\t" + str(datetime.datetime.now())[0:19])
+                    logging.info(account_list[-1] + "\t数据存在\t" +
+                                 str(datetime.datetime.now()))
                 sql = "delete from test_process where id = %d" % id
                 cur.execute(sql)
                 conn.commit()
@@ -209,6 +209,75 @@ def get_fellower(pool):
                 conn.close
 
 
+def get_fellower_1(pool):
+    while 1:
+        if len(follower_list) > 1:
+            time.sleep(5)
+        else:  # 查询数据
+            conn = pool.connection()
+            cur = conn.cursor()
+
+            sql = "update test_process set status = 2, machine = '%s-2' where status = 0 limit 100" % \
+                  socket.gethostname()
+            cur.execute(sql)
+            conn.commit()
+            sql = "select id, html, top from test_process where status = 2 and machine = '%s-2' limit " \
+                  "100" % socket.gethostname()
+            cur.execute(sql)
+            result = list(cur.fetchall())
+
+            cur.close()
+            conn.close
+        for each in result:
+            element = each[1]
+            id = each[0]
+            top = each[2]
+
+            # logging.info("开始爬取" + element)
+
+            html = etree.HTML(element)  # 将str转换成html代码
+            follower_name = html.xpath("//a[@class='UserLink-link']/text()")  # 获取用户昵称
+            # 关注者url
+            url = html.xpath("//div[@class='UserItem-title']//a[@class='UserLink-link']/@href")
+            # 关注者的关注人数
+            follower_following = html.xpath("//span[@class='ContentItem-statusItem'][last()]")
+
+            for index, content in enumerate(follower_name):  # 获取用户被关注人数
+                account_list = url[index].split("/")  # 根据url获取用户账号
+                follower_number = follower_following[index].text.split(" ")[0]
+                if int(follower_number) == 0:
+                    status = 3
+                else:
+                    status = 0
+
+                conn = pool.connection()
+                cur = conn.cursor()
+                try:
+                    sql = "insert into test_zhihu (account, name, url, follower_number, top, " \
+                          "status) VALUES ('%s', '%s', '%s', '%d', '%s', %d)" % (account_list[-1],
+                           content, "https://www.zhihu.com" + url[index], int(follower_number),
+                                                                                 top, status)
+                    cur.execute(sql)
+                    conn.commit()
+                    if len(account_list[-1]) < 10:
+                        account_list[-1] += " " * (10 - len(account_list[-1]))
+
+                    print(account_list[-1][0:10] + "\t数据正确\t" + str(datetime.datetime.now())[0:19])
+                    logging.info(account_list[-1] + "\t数据正确\t" +
+                                 str(datetime.datetime.now()))
+                except IntegrityError:
+                    if len(account_list[-1]) < 10:
+                        account_list[-1] += " " * (10 - len(account_list[-1]))
+                    print(account_list[-1][0:10] + "\t数据存在\t" + str(datetime.datetime.now())[0:19])
+                    logging.info(account_list[-1] + "\t数据存在\t" +
+                                 str(datetime.datetime.now()))
+                sql = "delete from test_process where id = %d" % id
+                cur.execute(sql)
+                conn.commit()
+
+                cur.close()
+                conn.close
+
 
 if __name__ == '__main__':
     url_list = []
@@ -216,35 +285,32 @@ if __name__ == '__main__':
     thread_list = []
 
     connKwargs = {'charset': 'utf8'}  # 设置字符集
-    pool = PooledDB(pymysql, 5, host='****', user='****', passwd='****',
-                    db='****', port=3306, maxshared=10, blocking=True, **connKwargs)
+    pool = PooledDB(pymysql, 5, host='localhost', user='root', passwd='***',
+                   db='robots', port=3306, maxshared=10, blocking=True, **connKwargs)
     filename = "robots.log"
     logging.basicConfig(filename=filename, level=logging.DEBUG)
-    # conn = pool.connection()
-    # cur = conn.cursor()
 
-    # t1 = threading.Thread(target=get_url_list, args=(cur, conn, ))  # 启动线程
-    # t2 = threading.Thread(target=get_html, args=(cur, conn, ))  # 启动线程
-    # t3 = threading.Thread(target=get_fellower, args=(cur, conn, ))  # 启动线程
-    t1 = threading.Thread(target=get_url_list, args=(pool, ))  # 启动线程
-    t2 = threading.Thread(target=get_html, args=(pool, ))  # 启动线程
-    t3 = threading.Thread(target=get_fellower, args=(pool, ))  # 启动线程
+    t1 = threading.Thread(target=get_url_list, args=(pool,))  # 启动线程
+    t2 = threading.Thread(target=get_html, args=(pool,))
+    t3 = threading.Thread(target=get_fellower, args=(pool,))
+    t4 = threading.Thread(target=get_fellower_1, args=(pool,))
 
     thread_list.append(t1)
     thread_list.append(t2)
+    thread_list.append(t3)
     thread_list.append(t3)
 
     t1.setDaemon(True)
     t2.setDaemon(True)
     t3.setDaemon(True)
+    t3.setDaemon(True)
 
     t1.start()
     t2.start()
     t3.start()
+    t4.start()
 
     t1.join()
     t2.join()
     t3.join()
-
-    # cur.close()
-    # conn.close()
+    t4.join()
