@@ -24,8 +24,8 @@ def get_url_list(pool):
                   "order by follower_number desc limit 100" % socket.gethostname()
             cur.execute(sql)
             conn.commit()
-            sql = "select url, account from test_zhihu where status = 2 and machine = '%s' ORDER " \
-                  "BY follower_number desc limit 100" % socket.gethostname()
+            sql = "select url, account from test_zhihu where status = 2 and machine = '%s' order by follower_number desc limit 100" % \
+                  socket.gethostname()
             cur.execute(sql)
             result = cur.fetchall()
             cur.close()
@@ -45,7 +45,7 @@ def get_url_list(pool):
 def get_html(pool):
     number = 0
     browser = webdriver.Chrome()  # 初始化浏览器
-    browser.implicitly_wait(2)  # 设置隐形等待时间
+    browser.implicitly_wait(5)  # 设置隐形等待时间
 
     while 1:
         if len(url_list) < 1:
@@ -62,77 +62,80 @@ def get_html(pool):
                     browser.find_element_by_class_name("UserLink-link")  # 防止页面未加载完毕
                     # 页面元素
                     element = browser.find_element_by_class_name("List").get_attribute("innerHTML")
-                    button = browser.find_element_by_xpath(
-                        "//button[@class='Button PaginationButton PaginationButton-next "
-                        "Button--plain'][last()]")
-
-                    try:
-                        conn = pool.connection()
-                        cur = conn.cursor()
-                        element = element.replace("'", '"')
-                        sql = "insert into test_process (html, top, status) values ('%s', '%s', 0)" \
-                              % (element, top)
-                        cur.execute(sql)
-                        conn.commit()
-                        cur.close()
-                        conn.close
-                    except ProgrammingError:
-                        pass
-
-                    conn = pool.connection()  # 更新已爬的页面
-                    cur = conn.cursor()
-                    sql = "update test_zhihu set url = '%s' where account = '%s'" \
-                          % (browser.current_url, top)
-                    cur.execute(sql)
-                    conn.commit()
-                    cur.close()
-                    conn.close
-
-                    button.click()
-                    time.sleep(1)
-
-                except NoSuchElementException as E:  # 类型错误，网页不存在，无关注者,或者无下一页按钮
+                except Exception as E:
                     unknowurl = browser.current_url
                     if "unhuman" in unknowurl:
                         print("爬虫被捕获")
                         exit()
                     else:
+                        logging.error(E)
+                        logging.error(repr(E))
+
+                try:
+                    conn = pool.connection()
+                    cur = conn.cursor()
+                    element = element.replace("'", '"')
+                    sql = "insert into test_process (html, top, status) values ('%s', '%s', 0)" \
+                          % (element, top)
+                    cur.execute(sql)
+                    conn.commit()
+                    cur.close()
+                    conn.close
+                except ProgrammingError:
+                    pass
+
+                conn = pool.connection()  # 更新已爬的页面
+                cur = conn.cursor()
+                sql = "update test_zhihu set url = '%s' where account = '%s'" \
+                      % (browser.current_url, top)
+                cur.execute(sql)
+                conn.commit()
+                cur.close()
+                conn.close
+                try:
+                    button = browser.find_element_by_xpath(
+                        "//button[@class='Button PaginationButton PaginationButton-next "
+                        "Button--plain'][last()]")
+                    button.click()
+                    time.sleep(1)
+
+                except NoSuchElementException as E:  # 类型错误，网页不存在，无关注者,或者无下一页按钮
+                    conn = pool.connection()
+                    cur = conn.cursor()
+
+                    sql = "update test_zhihu set status = 1, machine = '%s' where account = '%s'" \
+                          % (socket.gethostname(), top)
+                    cur.execute(sql)
+                    conn.commit()
+
+                    cur.close()
+                    conn.close
+                    print(top + "\t已爬完\t" + str(datetime.datetime.now()))
+                    logging.info(top + "\t已爬完\t" + str(datetime.datetime.now()))
+                    logging.error(E)
+
+                    conn = pool.connection()
+                    cur = conn.cursor()
+                    sql = "select url from test_zhihu where account = '%s'" % top
+                    cur.execute(sql)
+                    result = cur.fetchone()
+                    cur.close()
+                    conn.close
+
+                    url_string = result[0]
+                    if "page" in url_string:  # 构造原有的url
+                        index = url_string.index("followers")
+                        url_string = url_string[0:index - 1]
                         conn = pool.connection()
                         cur = conn.cursor()
-
-                        sql = "update test_zhihu set status = 1, machine = '%s' where account = '%s'" \
-                              % (socket.gethostname(), top)
+                        sql = "update test_zhihu set url = '%s' where account = '%s'" % (
+                            url_string, top)
                         cur.execute(sql)
                         conn.commit()
-
-                        cur.close()
-                        conn.close
-                        print(top + "\t已爬完\t" + str(datetime.datetime.now()))
-                        logging.info(top + "\t已爬完\t" + str(datetime.datetime.now()))
-                        logging.error(E)
-
-                        conn = pool.connection()
-                        cur = conn.cursor()
-                        sql = "select url from test_zhihu where account = '%s'" % top
-                        cur.execute(sql)
-                        result = cur.fetchone()
                         cur.close()
                         conn.close
 
-                        url_string = result[0]
-                        if "page" in url_string:  # 构造原有的url
-                            index = url_string.index("followers")
-                            url_string = url_string[0:index - 1]
-                            conn = pool.connection()
-                            cur = conn.cursor()
-                            sql = "update test_zhihu set url = '%s' where account = '%s'" % (
-                                url_string, top)
-                            cur.execute(sql)
-                            conn.commit()
-                            cur.close()
-                            conn.close
-
-                        break
+                    break
                 except Exception as E:
                     print(E)
                     logging.error(E)
@@ -256,7 +259,7 @@ def get_fellower_1(pool):
                     sql = "insert into test_zhihu (account, name, url, follower_number, top, " \
                           "status) VALUES ('%s', '%s', '%s', '%d', '%s', %d)" % (account_list[-1],
                            content, "https://www.zhihu.com" + url[index], int(follower_number),
-                                                                                 top, status)
+                           top, status)
                     cur.execute(sql)
                     conn.commit()
                     if len(account_list[-1]) < 10:
@@ -285,7 +288,7 @@ if __name__ == '__main__':
     thread_list = []
 
     connKwargs = {'charset': 'utf8'}  # 设置字符集
-    pool = PooledDB(pymysql, 5, host='localhost', user='root', passwd='***',
+    pool = PooledDB(pymysql, 5, host='localhost', user='root', passwd='****',
                    db='robots', port=3306, maxshared=10, blocking=True, **connKwargs)
     filename = "robots.log"
     logging.basicConfig(filename=filename, level=logging.DEBUG)
@@ -298,12 +301,12 @@ if __name__ == '__main__':
     thread_list.append(t1)
     thread_list.append(t2)
     thread_list.append(t3)
-    thread_list.append(t3)
+    thread_list.append(t4)
 
     t1.setDaemon(True)
     t2.setDaemon(True)
     t3.setDaemon(True)
-    t3.setDaemon(True)
+    t4.setDaemon(True)
 
     t1.start()
     t2.start()
